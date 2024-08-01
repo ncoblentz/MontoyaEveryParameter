@@ -12,3 +12,11 @@ The __Every Parameter Extension__ allows you to choose a set of payloads from a 
 
 - Build it with `gradlew shadowJar`
 - Add the extension in burp from the `build/libs/MontoyaEveryParameter-x.y.z-all.jar` folder where `x.y.z` represents the build version
+- Add the following bambda column to logger
+```java
+if(requestResponse.request().hasHeader("x-everyparam"))
+{
+    return utilities().base64Utils().decode(requestResponse.request().headerValue("x-everyparam"), Base64DecodingOptions.URL);
+}
+return "";
+```

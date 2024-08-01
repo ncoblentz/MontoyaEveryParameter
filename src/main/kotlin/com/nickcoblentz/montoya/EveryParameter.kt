@@ -11,6 +11,7 @@ import burp.api.montoya.ui.contextmenu.AuditIssueContextMenuEvent
 import burp.api.montoya.ui.contextmenu.ContextMenuEvent
 import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider
 import burp.api.montoya.ui.contextmenu.WebSocketContextMenuEvent
+import burp.api.montoya.utilities.Base64EncodingOptions
 import java.awt.Component
 import java.awt.event.ActionEvent
 import java.util.concurrent.Executors
@@ -30,7 +31,8 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     private val sqliMenuItem = JMenuItem("SQLi")
     private val xssMapMenuItem = JMenuItem("XSS ASDF")
     private val xssPayloadsMenuItem = JMenuItem("XSS Payloads")
-    private val allMenuItems = mutableListOf<Component>(sqliMenuItem,xssMapMenuItem,xssPayloadsMenuItem)
+    private val blindXssImgMenuItem = JMenuItem("Blind XSS Img")
+    private val allMenuItems = mutableListOf<Component>(sqliMenuItem,xssMapMenuItem,xssPayloadsMenuItem,blindXssImgMenuItem)
     private var currentHttpRequestResponseList = mutableListOf<HttpRequestResponse>()
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
 
@@ -50,6 +52,8 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         sqliMenuItem.addActionListener({ e -> sqliActionPerformed(e) })
         xssMapMenuItem.addActionListener({ e -> xssMapActionPerformed(e) })
         xssPayloadsMenuItem.addActionListener({ e -> xssPayloadsActionPerformed(e) })
+        xssPayloadsMenuItem.addActionListener({ e -> xssPayloadsActionPerformed(e) })
+        blindXssImgMenuItem.addActionListener({ e -> blindXssImgActionPerformed(e) })
         logger.debugLog("...Finished")
     }
 
@@ -102,6 +106,13 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         logger.debugLog("Exit")
     }
 
+    fun blindXssImgActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"><img src=\"https://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/blindimg.png\">asdf",PayloadType.END, "Bind XSS Img")
+        logger.debugLog("Exit")
+    }
+
     fun xssPayloadsActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
@@ -121,7 +132,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
 
             for(header in httpRequest.headers()) {
                 logger.debugLog("Found header: ${header.name()}, ${header.value()}")
-                sendRequest(httpRequest.withUpdatedHeader(header.name(),api.utilities().urlUtils().encode(payload)),annotation)
+                sendRequest(httpRequest.withUpdatedHeader(header.name(),api.utilities().urlUtils().encode(payload)),"header: ${header.name()}: $annotation")
             }
 
             for(parameter in httpRequest.parameters())
@@ -129,19 +140,19 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                 logger.debugLog("Found param: ${parameter.name()}, ${parameter.type()}, ${parameter.value()}")
                 when(parameter.type()) {
                     HttpParameterType.URL ->
-                        sendRequest(httpRequest.withUpdatedParameters(createUpdatedParameter(parameter,api.utilities().urlUtils().encode(payload))),annotation)
+                        sendRequest(httpRequest.withUpdatedParameters(createUpdatedParameter(parameter,api.utilities().urlUtils().encode(payload))),"URL Param: ${parameter.name()}: $annotation")
                     HttpParameterType.BODY ->
-                        sendRequest(httpRequest.withUpdatedParameters(createUpdatedParameter(parameter,api.utilities().urlUtils().encode(payload))),annotation)
+                        sendRequest(httpRequest.withUpdatedParameters(createUpdatedParameter(parameter,api.utilities().urlUtils().encode(payload))),"Body Param: ${parameter.name()}: $annotation")
                     HttpParameterType.COOKIE ->
-                        sendRequest(httpRequest.withUpdatedParameters(createUpdatedParameter(parameter,api.utilities().urlUtils().encode(payload))),annotation)
+                        sendRequest(httpRequest.withUpdatedParameters(createUpdatedParameter(parameter,api.utilities().urlUtils().encode(payload))),"Cookie: ${parameter.name()}: $annotation")
                     HttpParameterType.MULTIPART_ATTRIBUTE ->
-                        sendRequest(httpRequest.withUpdatedParameters(createUpdatedParameter(parameter,payload)),annotation)
+                        sendRequest(httpRequest.withUpdatedParameters(createUpdatedParameter(parameter,payload)),"mutipart Param: ${parameter.name()}: $annotation")
                     HttpParameterType.JSON ->
-                        sendRequest(matchReplaceParameterInRequest(httpRequest,parameter,payload.replace("\"","\\\"")),annotation)
+                        sendRequest(matchReplaceParameterInRequest(httpRequest,parameter,payload.replace("\"","\\\"")),"URL JSON: ${parameter.name()}: $annotation")
                     HttpParameterType.XML ->
-                        sendRequest(matchReplaceParameterInRequest(httpRequest,parameter,api.utilities().htmlUtils().encode(payload)),annotation)
+                        sendRequest(matchReplaceParameterInRequest(httpRequest,parameter,api.utilities().htmlUtils().encode(payload)),"URL XML: ${parameter.name()}: $annotation")
                     HttpParameterType.XML_ATTRIBUTE ->
-                        sendRequest(matchReplaceParameterInRequest(httpRequest,parameter,api.utilities().htmlUtils().encode(payload)),annotation)
+                        sendRequest(matchReplaceParameterInRequest(httpRequest,parameter,api.utilities().htmlUtils().encode(payload)),"URL XML Attr: ${parameter.name()}: $annotation")
                     else -> Unit
                 }
             }
@@ -160,7 +171,10 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     fun sendRequest(httpRequest : HttpRequest, annotation : String)
     {
         logger.debugLog("Enter")
-        executor.submit {api.http().sendRequest(httpRequest).annotations().setNotes(annotation)}
+        executor.submit {
+            val annotatedHttpRequest = httpRequest.withAddedHeader("x-everyparam",api.utilities().base64Utils().encode(annotation,Base64EncodingOptions.URL).toString())
+            api.http().sendRequest(annotatedHttpRequest)
+        }
         logger.debugLog("Exit")
     }
 }
