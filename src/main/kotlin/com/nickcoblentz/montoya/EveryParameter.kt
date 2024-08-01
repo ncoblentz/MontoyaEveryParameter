@@ -7,6 +7,7 @@ import burp.api.montoya.http.message.params.HttpParameter
 import burp.api.montoya.http.message.params.HttpParameterType
 import burp.api.montoya.http.message.params.ParsedHttpParameter
 import burp.api.montoya.http.message.requests.HttpRequest
+import burp.api.montoya.http.message.responses.HttpResponse
 import burp.api.montoya.ui.contextmenu.AuditIssueContextMenuEvent
 import burp.api.montoya.ui.contextmenu.ContextMenuEvent
 import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider
@@ -16,6 +17,7 @@ import java.awt.Component
 import java.awt.event.ActionEvent
 import java.util.concurrent.Executors
 import javax.swing.JMenuItem
+import java.lang.Math;
 
 enum class PayloadType {
     REPLACE,
@@ -32,7 +34,8 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     private val xssMapMenuItem = JMenuItem("XSS ASDF")
     private val xssPayloadsMenuItem = JMenuItem("XSS Payloads")
     private val blindXssImgMenuItem = JMenuItem("Blind XSS Img")
-    private val allMenuItems = mutableListOf<Component>(sqliMenuItem,xssMapMenuItem,xssPayloadsMenuItem,blindXssImgMenuItem)
+    private val minimizeMenuItem = JMenuItem("Minimize")
+    private val allMenuItems = mutableListOf<Component>(sqliMenuItem,xssMapMenuItem,xssPayloadsMenuItem,blindXssImgMenuItem,minimizeMenuItem)
     private var currentHttpRequestResponseList = mutableListOf<HttpRequestResponse>()
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
 
@@ -54,6 +57,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         xssPayloadsMenuItem.addActionListener({ e -> xssPayloadsActionPerformed(e) })
         xssPayloadsMenuItem.addActionListener({ e -> xssPayloadsActionPerformed(e) })
         blindXssImgMenuItem.addActionListener({ e -> blindXssImgActionPerformed(e) })
+        minimizeMenuItem.addActionListener({ e -> minimizeActionPerformed(e) })
         logger.debugLog("...Finished")
     }
 
@@ -121,6 +125,65 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"＞＜script＞alert(1)＜/script＞asdfutf7",PayloadType.END, "XSS UTF7")
         logger.debugLog("Exit")
     }
+
+    fun minimizeActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
+        executor.submit {
+
+            for (httpRequestResponse in myHttpRequestResponses) {
+                if (httpRequestResponse.hasResponse()) {
+                    for (httpRequestResponse in myHttpRequestResponses) {
+                        val originalRequest = httpRequestResponse.request()
+                        val originalResponse = httpRequestResponse.response()
+                        var currentRequest = originalRequest
+
+                        for (header in currentRequest.headers()) {
+                            val modifiedRequest = currentRequest.withRemovedHeader(header)
+                            val httpRequestResponseResult = api.http().sendRequest(modifiedRequest)
+                            if (responsesAreSimilar(originalResponse, httpRequestResponseResult.response()))
+                                currentRequest = modifiedRequest
+                        }
+
+                        val supportedParamaterTypes = listOf(
+                            HttpParameterType.URL,
+                            HttpParameterType.BODY,
+                            HttpParameterType.COOKIE,
+                            HttpParameterType.MULTIPART_ATTRIBUTE
+                        )
+                        for (parameter in currentRequest.parameters()) {
+
+                            if (supportedParamaterTypes.contains(parameter.type())) {
+                                val modifiedRequest = currentRequest.withRemovedParameters(parameter)
+                                val httpRequestResponseResult = api.http().sendRequest(modifiedRequest)
+                                if (responsesAreSimilar(originalResponse, httpRequestResponseResult.response()))
+                                    currentRequest = modifiedRequest
+                            }
+                        }
+
+                        api.repeater().sendToRepeater(currentRequest)
+                        api.comparer().sendToComparer(originalRequest.toByteArray(),currentRequest.toByteArray())
+                    }
+                } else
+                    logger.errorLog("Skipping mimize request because it doesn't have a response to compare to")
+            }
+        }
+        //iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"＞＜script＞alert(1)＜/script＞asdfutf7",PayloadType.END, "XSS UTF7")
+        logger.debugLog("Exit")
+    }
+
+    fun responsesAreSimilar(originalResponse: HttpResponse, currentResponse : HttpResponse) : Boolean
+    {
+        if( (originalResponse.statusCode()==currentResponse.statusCode()) &&
+            (originalResponse.reasonPhrase()==currentResponse.reasonPhrase()) &&
+            (originalResponse.statedMimeType()==currentResponse.statedMimeType())) {
+                return true
+        }
+
+
+        return false
+    }
+
 
     fun iterateThroughParametersWithPayload(httpRequestResponses : List<HttpRequestResponse>, payload : String, type : PayloadType, annotation : String)
     {
