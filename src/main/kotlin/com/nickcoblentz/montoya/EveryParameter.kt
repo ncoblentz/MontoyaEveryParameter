@@ -219,16 +219,20 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                         val originalResponse = httpRequestResponse.response()
                         var currentRequest = originalRequest
 
+                        val headerExceptions = listOf("Content-Length")
+
                         for (header in currentRequest.headers()) {
-                            val modifiedRequest = currentRequest.withRemovedHeader(header)
-                            val httpRequestResponseResult = api.http().sendRequest(modifiedRequest)
-                            if (responsesAreSimilar(originalResponse, httpRequestResponseResult.response()))
-                                currentRequest = modifiedRequest
+                            if(!headerExceptions.contains(header.name())) {
+                                val modifiedRequest = currentRequest.withRemovedHeader(header)
+                                val httpRequestResponseResult = sendRequestConsiderSettings(modifiedRequest)
+                                if (responsesAreSimilar(originalResponse, httpRequestResponseResult.response()))
+                                    currentRequest = modifiedRequest
+                            }
                         }
 
                         val supportedParamaterTypes = listOf(
-                            HttpParameterType.URL,
                             HttpParameterType.BODY,
+                            HttpParameterType.URL,
                             HttpParameterType.COOKIE,
                             HttpParameterType.MULTIPART_ATTRIBUTE
                         )
@@ -240,6 +244,18 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                                 if (responsesAreSimilar(originalResponse, httpRequestResponseResult.response()))
                                     currentRequest = modifiedRequest
                             }
+                            else {
+                                val modifiedRequest = matchReplaceParameterInRequest(
+                                    currentRequest,
+                                    parameter,
+                                    "",
+                                    PayloadType.REPLACE
+                                )
+                                val httpRequestResponseResult = sendRequestConsiderSettings(modifiedRequest)
+                                if (responsesAreSimilar(originalResponse, httpRequestResponseResult.response()))
+                                    currentRequest = modifiedRequest
+                            }
+
                         }
 
                         api.repeater().sendToRepeater(currentRequest)
@@ -258,7 +274,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         if( (originalResponse.statusCode()==currentResponse.statusCode()) &&
             (originalResponse.reasonPhrase()==currentResponse.reasonPhrase()) &&
             (originalResponse.statedMimeType()==currentResponse.statedMimeType())) {
-                return true
+            return true
         }
 
 
@@ -266,7 +282,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     }
 
 
-    fun iterateThroughParametersWithPayload(httpRequestResponses : List<HttpRequestResponse>, payload : String, type : PayloadType, annotation : String)
+    fun iterateThroughParametersWithPayload(httpRequestResponses : List<HttpRequestResponse>, payload : String, payloadType : PayloadType, annotation : String)
     {
         logger.debugLog("Enter")
         for(httpRequestResponse in httpRequestResponses)
@@ -291,7 +307,8 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                                 httpRequest.withUpdatedParameters(
                                     createUpdatedParameter(
                                         parameter,
-                                        api.utilities().urlUtils().encode(payload)
+                                        api.utilities().urlUtils().encode(payload),
+                                        payloadType
                                     )
                                 ), "URL Param: ${parameter.name()}: $annotation"
                             )
@@ -301,7 +318,8 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                                 httpRequest.withUpdatedParameters(
                                     createUpdatedParameter(
                                         parameter,
-                                        api.utilities().urlUtils().encode(payload)
+                                        api.utilities().urlUtils().encode(payload),
+                                        payloadType
                                     )
                                 ), "Body Param: ${parameter.name()}: $annotation"
                             )
@@ -311,14 +329,15 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                                 httpRequest.withUpdatedParameters(
                                     createUpdatedParameter(
                                         parameter,
-                                        api.utilities().urlUtils().encode(payload)
+                                        api.utilities().urlUtils().encode(payload),
+                                        payloadType
                                     )
                                 ), "Cookie: ${parameter.name()}: $annotation"
                             )
 
                         HttpParameterType.MULTIPART_ATTRIBUTE ->
                             sendRequest(
-                                httpRequest.withUpdatedParameters(createUpdatedParameter(parameter, payload)),
+                                httpRequest.withUpdatedParameters(createUpdatedParameter(parameter, payload,payloadType)),
                                 "mutipart Param: ${parameter.name()}: $annotation"
                             )
 
@@ -327,7 +346,8 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                                 matchReplaceParameterInRequest(
                                     httpRequest,
                                     parameter,
-                                    payload.replace("\"", "\\\"")
+                                    payload.replace("\"", "\\\""),
+                                    payloadType
                                 ), "URL JSON: ${parameter.name()}: $annotation"
                             )
 
@@ -336,11 +356,12 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                                 matchReplaceParameterInRequest(
                                     httpRequest,
                                     parameter,
-                                    api.utilities().htmlUtils().encode(payload)
+                                    api.utilities().htmlUtils().encode(payload),
+                                    payloadType
                                 ), "URL XML: ${parameter.name()}: $annotation"
                             )
                             sendRequest(
-                                matchReplaceParameterInRequest(httpRequest, parameter, "<![CDATA[$payload]]>"),
+                                matchReplaceParameterInRequest(httpRequest, parameter, "<![CDATA[$payload]]>",payloadType),
                                 "URL XML: ${parameter.name()}: $annotation"
                             )
                         }
@@ -350,7 +371,8 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                                 matchReplaceParameterInRequest(
                                     httpRequest,
                                     parameter,
-                                    api.utilities().htmlUtils().encode(payload)
+                                    api.utilities().htmlUtils().encode(payload),
+                                    payloadType
                                 ), "URL XML Attr: ${parameter.name()}: $annotation"
                             )
 
@@ -365,14 +387,89 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         logger.debugLog("Exit")
     }
 
-    fun createUpdatedParameter(parsedParameter : ParsedHttpParameter,encodedPayload : String) : HttpParameter {
+    /*fun createUpdatedParameter(parsedParameter : ParsedHttpParameter,encodedPayload : String) : HttpParameter {
         logger.debugLog("Enter")
         return HttpParameter.parameter(parsedParameter.name(),encodedPayload,parsedParameter.type())
+    }*/
+
+    fun createUpdatedParameter(parsedParameter : ParsedHttpParameter,encodedPayload : String,payloadType : PayloadType) : HttpParameter {
+        logger.debugLog("Enter")
+        return HttpParameter.parameter(parsedParameter.name(), insertPayloadAccordingToType(parsedParameter,encodedPayload,payloadType), parsedParameter.type())
     }
 
-    fun matchReplaceParameterInRequest(originalRequest : HttpRequest ,parsedParameter : ParsedHttpParameter,encodedPayload : String) : HttpRequest {
+    /*fun matchReplaceParameterInRequest(originalRequest : HttpRequest ,parsedParameter : ParsedHttpParameter,encodedPayload : String) : HttpRequest {
         return originalRequest.withBody(originalRequest.bodyToString().replace(parsedParameter.value(),encodedPayload))
+    }*/
+
+    fun matchReplaceParameterInRequest(originalRequest : HttpRequest ,parsedParameter : ParsedHttpParameter,encodedPayload : String, payloadType : PayloadType) : HttpRequest {
+
+        //find updated parsed parameter
+
+        var updatedParsedParam = originalRequest.parameters().find { it.name()==parsedParameter.name() && it.type() == parsedParameter.type() && it.value()==parsedParameter.value() }
+
+        if(updatedParsedParam!=null) {
+            val requestAsString = originalRequest.toString()
+
+            when (payloadType) {
+                PayloadType.BEGINNING -> {
+                    val part1 = requestAsString.substring(0, updatedParsedParam.valueOffsets().startIndexInclusive())
+                    val part2 = requestAsString.substring(updatedParsedParam.valueOffsets().startIndexInclusive() + 1)
+                    return HttpRequest.httpRequest(originalRequest.httpService(), part1 + encodedPayload + part2)
+                }
+
+                PayloadType.MIDDLE -> {
+                    val middleIndexDiff =
+                        (updatedParsedParam.valueOffsets().endIndexExclusive() - updatedParsedParam.valueOffsets()
+                            .startIndexInclusive()) / 2
+                    if (middleIndexDiff > 1) {
+                        val part1 = requestAsString.substring(
+                            0,
+                            updatedParsedParam.valueOffsets().startIndexInclusive() + middleIndexDiff
+                        )
+                        val part2 = requestAsString.substring(
+                            updatedParsedParam.valueOffsets().startIndexInclusive() + middleIndexDiff + 1
+                        )
+                        return HttpRequest.httpRequest(originalRequest.httpService(), part1 + encodedPayload + part2)
+                    }
+                    val part1 = requestAsString.substring(0, updatedParsedParam.valueOffsets().startIndexInclusive())
+                    val part2 = requestAsString.substring(updatedParsedParam.valueOffsets().startIndexInclusive() + 1)
+                    return HttpRequest.httpRequest(originalRequest.httpService(), part1 + encodedPayload + part2)
+                }
+
+                PayloadType.END -> {
+                    val part1 = requestAsString.substring(0, updatedParsedParam.valueOffsets().endIndexExclusive())
+                    val part2 = requestAsString.substring(updatedParsedParam.valueOffsets().endIndexExclusive())
+                    return HttpRequest.httpRequest(originalRequest.httpService(), part1 + encodedPayload + part2)
+                }
+
+                else -> {
+                    val part1 = requestAsString.substring(0, updatedParsedParam.valueOffsets().startIndexInclusive())
+                    val part2 = requestAsString.substring(updatedParsedParam.valueOffsets().endIndexExclusive())
+                    return HttpRequest.httpRequest(originalRequest.httpService(), part1 + encodedPayload + part2)
+                }
+            }
+        }
+        return originalRequest
     }
+
+    fun insertPayloadAccordingToType(parsedParameter : ParsedHttpParameter,encodedPayload : String,payloadType : PayloadType) : String {
+        when (payloadType) {
+            PayloadType.BEGINNING -> return encodedPayload + parsedParameter.value()
+            PayloadType.MIDDLE -> {
+                val parsedParamValLength = parsedParameter.value().length
+                if (parsedParamValLength > 1) {
+                    return parsedParameter.value()
+                        .substring(0, parsedParamValLength / 2) + encodedPayload + parsedParameter.value()
+                        .substring(parsedParamValLength / 2 + 1)
+                }
+                return encodedPayload + parsedParameter.value()
+            }
+
+            PayloadType.END -> return parsedParameter.value() + encodedPayload
+            else -> return encodedPayload
+        }
+    }
+
     fun sendRequest(httpRequest : HttpRequest, annotation : String)
     {
         logger.debugLog("Enter")
@@ -386,9 +483,16 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
 
     fun sendRequestConsiderSettings(httpRequest : HttpRequest) : HttpRequestResponse {
         if(followRedirectSetting.currentValue)
-            return api.http().sendRequest(httpRequest,RequestOptions.requestOptions().withRedirectionMode(RedirectionMode.ALWAYS))
+            return api.http().sendRequest(updateRequestContentLength(httpRequest),RequestOptions.requestOptions().withRedirectionMode(RedirectionMode.ALWAYS))
         else
-            return api.http().sendRequest(httpRequest)
+            return api.http().sendRequest(updateRequestContentLength(httpRequest))
+    }
+
+    fun updateRequestContentLength(httpRequest : HttpRequest) : HttpRequest {
+        if(httpRequest.hasHeader("Content-Length")) {
+            return httpRequest.withUpdatedHeader("Content-Length",httpRequest.body().length().toString())
+        }
+        return httpRequest
     }
 
 }
