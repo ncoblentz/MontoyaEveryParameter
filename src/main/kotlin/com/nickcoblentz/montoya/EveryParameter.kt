@@ -266,11 +266,10 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     {
         if( (originalResponse.statusCode()==currentResponse.statusCode()) &&
             (originalResponse.reasonPhrase()==currentResponse.reasonPhrase()) &&
-            (originalResponse.statedMimeType()==currentResponse.statedMimeType())) {
-            return true
+            (originalResponse.statedMimeType()==currentResponse.statedMimeType()) &&
+            originalResponse.body().length()>0 == currentResponse.body().length()>0) {
+                return true
         }
-
-
         return false
     }
 
@@ -351,8 +350,9 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                                     payloadType
                                 ), "URL XML: ${parameter.name()}: $annotation"
                             )
+                            //at some point, change this from hardcoded replace to something else
                             sendRequest(
-                                httpRequest.withUpdatedParsedParameterValue(parameter, "<![CDATA[$payload]]>",payloadType),
+                                httpRequest.withUpdatedParsedParameterValue(parameter, "<![CDATA[$payload]]>",PayloadUpdateMode.REPLACE),
                                 "URL XML: ${parameter.name()}: $annotation"
                             )
                         }
