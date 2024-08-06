@@ -87,6 +87,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         val settingsFormBuilder = formGenerator.getSettingsFormBuilder()
         val settingsForm = settingsFormBuilder.run()
         api.userInterface().registerContextMenuItemsProvider(ExtensionSettingsContextMenuProvider(api, settingsForm))
+        api.extension().registerUnloadingHandler(ExtensionSettingsUnloadHandler(settingsForm))
         logger.debugLog("...Finished")
     }
 
