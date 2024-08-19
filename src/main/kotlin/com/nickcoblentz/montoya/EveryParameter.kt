@@ -177,13 +177,17 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         val payloads=listOf("_","-",",",";",":","!","?",".",".aaa",".action",".css",".do",".html",".png","'","\"","(","(4danlfat035muve4g0mvgfrr)","(S(4danlfat035muve4g0mvgfrr))",")","[","[]","[1]","[a]","]","{","{}","{1}","{a}","}","@","*","/","/1","/a","\\","\\1","\\a","&","#","%","%00","%00aaa","%0a","%0a%0a","%0d","%21","%22","%23","%24","%25","%26","%27","%28","%29","%2a","%2A","%2b","%2B","%2c","%2C","%2d","%2D","%2E","%2f","%2F","%3a","%3A","%3b","%3B","%3C","%3c%3e","%3d","%3D","%3E","%3f","%3F","%40","%5B","%5b%5d","%5b1%5d","%5ba%5d","%5c","%5C","%5D","%5e","%5E","%5f","%5F","%60","%7B","%7b%7d","%7b1%7d","%7ba%7d","%7c","%7C","%7D","%7e","%7E","`","^","+","<","<>","=",">","|","~","$")
         for(httpRequestResponse in myHttpRequestResponses) {
             val path = httpRequestResponse.request().path()
-            var index = path.indexOf("/")
-            while (index >= 0) {
+            //var index = path.indexOf("/")
+            var indices = path.indices.filter { index -> path[index]=='/' }.toMutableList()
+            indices.add(-1)
+            indices.add(httpRequestResponse.request().pathWithoutQuery().length-1)
+            //while (index >= 0) {
+            for(index in indices) {
                 for (payload in payloads) {
                     val pathWithPayload = StringBuilder(path).insert(index+1,payload)
                     sendRequest(httpRequestResponse.request().withPath(pathWithPayload.toString()).withUpdatedContentLength(),"URL Special Chars, index: ${index}, payload: ${payload}")
                 }
-                index = path.indexOf("/", index + 1)
+                //index = path.indexOf("/", index + 1)
             }
 
         }
