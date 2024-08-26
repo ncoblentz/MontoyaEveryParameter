@@ -4,6 +4,7 @@ import burp.api.montoya.BurpExtension
 import burp.api.montoya.MontoyaApi
 import burp.api.montoya.http.RedirectionMode
 import burp.api.montoya.http.RequestOptions
+import burp.api.montoya.http.message.HttpHeader
 import burp.api.montoya.http.message.HttpRequestResponse
 import burp.api.montoya.http.message.params.HttpParameter
 import burp.api.montoya.http.message.params.HttpParameterType
@@ -42,7 +43,8 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     private val log4jCollabMenuItem = JMenuItem("Log4J Collab")
     private val minimizeMenuItem = JMenuItem("Minimize")
     private val spoofIPMenuItem = JMenuItem("Spoof IP Using Headers")
-    private val allMenuItems = mutableListOf<Component>(sqliQuickMenuItem,sqliErrorPayloadsMenuItem,sqliConcatPayloadsMenuItem,sqliSingleQuoteCommentPayloadsMenuItem,sqliDoubleQuoteCommentPayloadsMenuItem,sqliLogicPayloadsMenuItem,xssMapMenuItem,xssPayloadsMenuItem,blindXssImgMenuItem,xmlOutOfBandMenuItem,xmlFileMenuItem,urlPathSpecialCharsMenuItem,collabUrlMenuItem,log4jCollabMenuItem,spoofIPMenuItem,minimizeMenuItem)
+    private val dnsOverHTTPMenuItem = JMenuItem("DNS-over-HTTP")
+    private val allMenuItems = mutableListOf<Component>(sqliQuickMenuItem,sqliErrorPayloadsMenuItem,sqliConcatPayloadsMenuItem,sqliSingleQuoteCommentPayloadsMenuItem,sqliDoubleQuoteCommentPayloadsMenuItem,sqliLogicPayloadsMenuItem,xssMapMenuItem,xssPayloadsMenuItem,blindXssImgMenuItem,xmlOutOfBandMenuItem,xmlFileMenuItem,urlPathSpecialCharsMenuItem,collabUrlMenuItem,log4jCollabMenuItem,spoofIPMenuItem,dnsOverHTTPMenuItem,minimizeMenuItem)
     private var currentHttpRequestResponseList = mutableListOf<HttpRequestResponse>()
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
     private lateinit var followRedirectSetting : BooleanExtensionSetting
@@ -78,6 +80,8 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         minimizeMenuItem.addActionListener({ e -> minimizeActionPerformed(e) })
         log4jCollabMenuItem.addActionListener({ e -> log4jCollabActionPerformed(e) })
         spoofIPMenuItem.addActionListener { e -> spoofIpActionPerformed(e) }
+        dnsOverHTTPMenuItem.addActionListener { e-> dnsOverHTTPActionPerformed(e)}
+
         followRedirectSetting = BooleanExtensionSetting(
             api,
             "Follow Redirects?",
@@ -120,6 +124,23 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     }
 
 
+    fun dnsOverHTTPActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+
+        val listOfHosts = currentHttpRequestResponseList.map { it.httpService()?.host() }.distinct()
+        for(host in listOfHosts) {
+
+            val request1 = HttpRequest.httpRequestFromUrl("https://$host/dns-query?dns=EjQBAAABAAAAAAAAB2V4YW1wbGUDY29tAAABAAE").withUpdatedHeader("Accept","application/dns-message")
+            val request2 = HttpRequest.httpRequestFromUrl("https://$host/dns-query?name=example.com&type=A").withUpdatedHeader("Accept","application/dns-json")
+            val request3 = HttpRequest.httpRequestFromUrl("https://$host/dns-query").withUpdatedHeader("Accept","application/dns-message").withMethod("POST").withBody("\\u00124\\u0001\\u0000\\u0000\\u0001\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0007example\\u0003com\\u0000\\u0000\\u0001\\u0000\\u0001")
+
+            sendRequest(request1,"DNS-over-HTTP GET B64")
+            sendRequest(request2,"DNS-over-HTTP GET JSON")
+            sendRequest(request3,"DNS-over-HTTP POST Binary")
+        }
+
+        logger.debugLog("Exit")
+    }
 
     fun spoofIpActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
