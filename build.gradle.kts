@@ -21,11 +21,10 @@ repositories {
 dependencies {
     testImplementation(kotlin("test"))
     implementation("net.portswigger.burp.extensions:montoya-api:2024.7")
-    implementation("com.nickcoblentz.montoya:MontoyaLibrary:0.1.21")
-    //implementation("com.github.ncoblentz:BurpMontoyaLibrary:0.1.14")
+    //implementation("com.nickcoblentz.montoya:MontoyaLibrary:0.1.27")
+    implementation("com.github.ncoblentz:BurpMontoyaLibrary:0.1.27")
     implementation("com.github.milchreis:uibooster:1.21.1")
     implementation("org.json:json:20240303")
-
 }
 
 tasks.test {
