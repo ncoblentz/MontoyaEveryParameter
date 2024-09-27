@@ -22,6 +22,9 @@ fun HttpRequest.pathSlices() : List<PathSlice> {
                 previousIndex=it
             }
         }
+        if(indices.last()<originalPath.length) {
+            pathSlices.add(PathSlice(originalPath.substring(previousIndex+1,originalPath.length),previousIndex+1,originalPath.length))
+        }
     }
 
     return pathSlices

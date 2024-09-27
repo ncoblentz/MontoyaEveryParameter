@@ -408,6 +408,12 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                 sendRequest(httpRequest.withUpdatedHeader(header.name(),api.utilities().urlUtils().encode(payload)),"header: ${header.name()}: $annotation")
             }
 
+            sendRequest(
+                httpRequest.withUpdatedHeader(
+                    "Authorization",
+                    "Basic "+api.utilities().base64Utils().encode("$payload:$payload")),
+                    "header: Authorization: Basic: $annotation")
+
             for(pathSlice in httpRequest.pathSlices()) {
                 logger.debugLog("Found path slice: ${pathSlice.value}")
                 sendRequest(httpRequest.replacePathSlice(pathSlice,api.utilities().urlUtils().encode(payload)),"pathSlice: ${pathSlice.value}: $annotation")
