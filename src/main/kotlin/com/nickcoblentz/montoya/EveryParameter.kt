@@ -4,7 +4,6 @@ import burp.api.montoya.BurpExtension
 import burp.api.montoya.MontoyaApi
 import burp.api.montoya.http.RedirectionMode
 import burp.api.montoya.http.RequestOptions
-import burp.api.montoya.http.message.HttpHeader
 import burp.api.montoya.http.message.HttpRequestResponse
 import burp.api.montoya.http.message.params.HttpParameter
 import burp.api.montoya.http.message.params.HttpParameterType
@@ -407,6 +406,11 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
             for(header in httpRequest.headers()) {
                 logger.debugLog("Found header: ${header.name()}, ${header.value()}")
                 sendRequest(httpRequest.withUpdatedHeader(header.name(),api.utilities().urlUtils().encode(payload)),"header: ${header.name()}: $annotation")
+            }
+
+            for(pathSlice in httpRequest.pathSlices()) {
+                logger.debugLog("Found path slice: ${pathSlice.value}")
+                sendRequest(httpRequest.replacePathSlice(pathSlice,api.utilities().urlUtils().encode(payload)),"pathSlice: ${pathSlice.value}: $annotation")
             }
 
             for(parameter in httpRequest.parameters())
