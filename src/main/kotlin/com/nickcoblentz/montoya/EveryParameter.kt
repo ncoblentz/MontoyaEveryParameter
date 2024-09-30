@@ -40,10 +40,30 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     private val urlPathSpecialCharsMenuItem = JMenuItem("URL Path Special Chars")
     private val collabUrlMenuItem = JMenuItem("Collab Url")
     private val log4jCollabMenuItem = JMenuItem("Log4J Collab")
+    private val maxForwardsMenuItem = JMenuItem("Max-Forwards")
     private val minimizeMenuItem = JMenuItem("Minimize")
     private val spoofIPMenuItem = JMenuItem("Spoof IP Using Headers")
     private val dnsOverHTTPMenuItem = JMenuItem("DNS-over-HTTP")
-    private val allMenuItems = mutableListOf<Component>(sqliQuickMenuItem,sqliErrorPayloadsMenuItem,sqliConcatPayloadsMenuItem,sqliSingleQuoteCommentPayloadsMenuItem,sqliDoubleQuoteCommentPayloadsMenuItem,sqliLogicPayloadsMenuItem,xssMapMenuItem,xssPayloadsMenuItem,blindXssImgMenuItem,xmlOutOfBandMenuItem,xmlFileMenuItem,urlPathSpecialCharsMenuItem,collabUrlMenuItem,log4jCollabMenuItem,spoofIPMenuItem,dnsOverHTTPMenuItem,minimizeMenuItem)
+    private val allMenuItems = mutableListOf<Component>(
+        sqliQuickMenuItem,
+        sqliErrorPayloadsMenuItem,
+        sqliConcatPayloadsMenuItem,
+        sqliSingleQuoteCommentPayloadsMenuItem,
+        sqliDoubleQuoteCommentPayloadsMenuItem,
+        sqliLogicPayloadsMenuItem,
+        xssMapMenuItem,
+        xssPayloadsMenuItem,
+        blindXssImgMenuItem,
+        xmlOutOfBandMenuItem,
+        xmlFileMenuItem,
+        urlPathSpecialCharsMenuItem,
+        collabUrlMenuItem,
+        maxForwardsMenuItem,
+        log4jCollabMenuItem,
+        spoofIPMenuItem,
+        dnsOverHTTPMenuItem,
+        minimizeMenuItem
+    )
     private var currentHttpRequestResponseList = mutableListOf<HttpRequestResponse>()
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
     private lateinit var followRedirectSetting : BooleanExtensionSetting
@@ -80,6 +100,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         log4jCollabMenuItem.addActionListener({ e -> log4jCollabActionPerformed(e) })
         spoofIPMenuItem.addActionListener { e -> spoofIpActionPerformed(e) }
         dnsOverHTTPMenuItem.addActionListener { e-> dnsOverHTTPActionPerformed(e)}
+        maxForwardsMenuItem.addActionListener { e-> maxForwardsActionPerformed(e)}
 
         followRedirectSetting = BooleanExtensionSetting(
             api,
@@ -122,6 +143,17 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         return mutableListOf<Component>()
     }
 
+    fun maxForwardsActionPerformed(event: ActionEvent?) {
+        logger.debugLog("Enter")
+        val myHttpRequestResponses = currentHttpRequestResponseList.toList()
+        for (httpRequestResponse in myHttpRequestResponses) {
+            (0..5).forEach {   logger.debugLog("TRACE $it");sendRequest(httpRequestResponse.request().withMethod("TRACE").withBody("").withAddedHeader("Max-Forwards",it.toString()),"Max-Forwards: TRACE $it") }
+            (0..5).forEach { sendRequest(httpRequestResponse.request().withMethod("GET").withBody("").withAddedHeader("Max-Forwards",it.toString()),"Max-Forwards: GET $it") }
+            (0..5).forEach { sendRequest(httpRequestResponse.request().withMethod("HEAD").withBody("").withAddedHeader("Max-Forwards",it.toString()),"Max-Forwards: HEAD $it") }
+        }
+
+        logger.debugLog("Exit")
+    }
 
     fun dnsOverHTTPActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
