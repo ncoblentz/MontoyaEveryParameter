@@ -324,7 +324,8 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     fun blindXssImgActionPerformed(event: ActionEvent?) {
         logger.debugLog("Enter")
         val myHttpRequestResponses = currentHttpRequestResponseList.toList()
-        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"><img src=\"https://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/blindimg.png\">asdf",PayloadUpdateMode.APPEND, "Bind XSS Img")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"'\"><img src=\"https://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/blindimg.png\">asdf",PayloadUpdateMode.APPEND, "Blind XSS Img")
+        iterateThroughParametersWithPayload(myHttpRequestResponses,"![](https://${api.collaborator().defaultPayloadGenerator().generatePayload().toString()}/blindmarkdownimg.png)",PayloadUpdateMode.APPEND, "Blind XSS Markdown")
         logger.debugLog("Exit")
     }
 
