@@ -14,6 +14,8 @@ import burp.api.montoya.ui.contextmenu.AuditIssueContextMenuEvent
 import burp.api.montoya.ui.contextmenu.ContextMenuEvent
 import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider
 import burp.api.montoya.ui.contextmenu.WebSocketContextMenuEvent
+import burp.api.montoya.ui.settings.SettingsPanelBuilder
+import burp.api.montoya.ui.settings.SettingsPanelPersistence
 import burp.api.montoya.utilities.Base64EncodingOptions
 import com.nickcoblentz.montoya.settings.*
 import java.awt.Component
@@ -66,8 +68,8 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     )
     private var currentHttpRequestResponseList = mutableListOf<HttpRequestResponse>()
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
-    private lateinit var followRedirectSetting : BooleanExtensionSetting
-    private lateinit var ignoreParametersSetting : ListStringExtensionSetting
+
+    private lateinit var myExtensionSettings : MyExtensionSettings
 
     companion object {
         private const val PLUGIN_NAME: String = "Every Parameter"
@@ -102,24 +104,8 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         dnsOverHTTPMenuItem.addActionListener { e-> dnsOverHTTPActionPerformed(e)}
         maxForwardsMenuItem.addActionListener { e-> maxForwardsActionPerformed(e)}
 
-        followRedirectSetting = BooleanExtensionSetting(
-            api,
-            "Follow Redirects?",
-            "everyparam.followRedirect",
-            false,
-            ExtensionSettingSaveLocation.PROJECT)
-        ignoreParametersSetting = ListStringExtensionSetting(
-            api,
-            "Ignore the following Parameters",
-            "everyparam.ignoreParam",
-            mutableListOf<String>(),
-            ExtensionSettingSaveLocation.PROJECT
-        )
-        val formGenerator = GenericExtensionSettingsFormGenerator(listOf(followRedirectSetting,ignoreParametersSetting),PLUGIN_NAME)
-        val settingsFormBuilder = formGenerator.getSettingsFormBuilder()
-        val settingsForm = settingsFormBuilder.run()
-        api.userInterface().registerContextMenuItemsProvider(ExtensionSettingsContextMenuProvider(api, settingsForm))
-        api.extension().registerUnloadingHandler(ExtensionSettingsUnloadHandler(settingsForm))
+        myExtensionSettings = MyExtensionSettings()
+
         logger.debugLog("...Finished")
     }
 
@@ -455,9 +441,10 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
             for(parameter in httpRequest.parameters())
             {
                 logger.debugLog("Found param: ${parameter.name()}, ${parameter.type()}, ${parameter.value()}")
-                logger.debugLog("List of ignored values:\n${ignoreParametersSetting.currentValue}")
+                logger.debugLog("Regex of ignored values:\n${myExtensionSettings.ignoreParametersSetting}")
 
-                if(!ignoreParametersSetting.currentValue.any { parameter.name().equals(it,ignoreCase = true) }) {
+
+                if(!myExtensionSettings.ignoreParametersSetting.toRegex(RegexOption.IGNORE_CASE).matches(parameter.name())) {
                     when (parameter.type()) {
                         HttpParameterType.URL ->
                             sendRequest(
@@ -603,7 +590,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
     }
 
     fun sendRequestConsiderSettings(httpRequest : HttpRequest) : HttpRequestResponse {
-        if(followRedirectSetting.currentValue)
+        if(myExtensionSettings.followRedirectSetting)
             return api.http().sendRequestWithUpdatedContentLength(httpRequest,RequestOptions.requestOptions().withRedirectionMode(RedirectionMode.ALWAYS))
         else
             return api.http().sendRequestWithUpdatedContentLength(httpRequest)
@@ -611,3 +598,17 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
 
 }
 
+class MyExtensionSettings {
+    val settingsPanelBuilder : SettingsPanelBuilder = SettingsPanelBuilder.settingsPanel()
+        .withPersistence(SettingsPanelPersistence.PROJECT_SETTINGS)
+        .withTitle("Every Parameter")
+        .withDescription("Configure the settings.")
+        .withKeywords("Every", "Parameter")
+
+    private val settingsManager = PanelSettingsDelegate(settingsPanelBuilder)
+
+    val ignoreParametersSetting: String by settingsManager.stringSetting("Ignore the following Parameters (RegEx)", "")
+    val followRedirectSetting: Boolean by settingsManager.booleanSetting("Follow Redirects?", false)
+
+    val settingsPanel = settingsManager.buildSettingsPanel()
+}
