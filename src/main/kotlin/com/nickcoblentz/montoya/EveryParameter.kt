@@ -105,6 +105,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
         maxForwardsMenuItem.addActionListener { e-> maxForwardsActionPerformed(e)}
 
         myExtensionSettings = MyExtensionSettings()
+        api.userInterface().registerSettingsPanel(myExtensionSettings.settingsPanel)
 
         logger.debugLog("...Finished")
     }
