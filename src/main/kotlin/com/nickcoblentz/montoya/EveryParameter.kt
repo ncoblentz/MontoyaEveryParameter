@@ -445,7 +445,7 @@ class EveryParameter : BurpExtension, ContextMenuItemsProvider {
                 logger.debugLog("Regex of ignored values:\n${myExtensionSettings.ignoreParametersSetting}")
 
 
-                if(!myExtensionSettings.ignoreParametersSetting.toRegex(RegexOption.IGNORE_CASE).matches(parameter.name())) {
+                if(myExtensionSettings.ignoreParametersSetting.isBlank() || !myExtensionSettings.ignoreParametersSetting.toRegex(RegexOption.IGNORE_CASE).matches(parameter.name())) {
                     when (parameter.type()) {
                         HttpParameterType.URL ->
                             sendRequest(
